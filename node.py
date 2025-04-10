@@ -35,8 +35,6 @@ class Node:
         self.heartbeat_thread = None
         
         logger.info(f"Initialized node {self.friendly_name} with ID {self.node_id}")
-        logger.info(f"Node URL: {self.node_url}")
-        logger.info(f"Bootstrap URL: {self.bootstrap_url}")
     
     def get_node_info(self):
         """Return basic information about the node"""
@@ -58,60 +56,34 @@ class Node:
             self.peers.add(peer_url)
             logger.info(f"Registered new peer: {peer_url}")
             requests.post(f"{peer_url}/register", json={'peer_url': self.node_url}, timeout=5)
-
-        
         return jsonify({'status': 'registered', 'peers': list(self.peers)})
     
     def verify_sender(self, sender_id):
         """Verify if a sender ID belongs to a valid node in the network"""
-        logger.info(f"Verifying sender: {sender_id}")
-        logger.info(f"Current peers: {self.peers}")
-        
         # First check our direct peers
         for peer_url in self.peers:
-            try:
-                logger.debug(f"Checking peer: {peer_url}")
-                response = requests.get(peer_url, timeout=5)
-                if response.status_code == 200:
-                    node_info = response.json()
-                    logger.debug(f"Peer info: {node_info}")
-                    # Check both node_id and friendly_name
-                    if (node_info.get('node_id') == sender_id or 
-                        node_info.get('friendly_name') == sender_id):
-                        logger.info(f"Verified sender {sender_id} from direct peer {peer_url}")
-                        return True
-            except Exception as e:
-                logger.debug(f"Error checking peer {peer_url}: {str(e)}")
-        
-        # If not found in direct peers, check with bootstrap node as a fallback
-        try:
-            logger.debug(f"Checking bootstrap node: {self.bootstrap_url}")
+            response = requests.get(peer_url, timeout=5)
+            if response.status_code == 200:
+                node_info = response.json()
+                # Check both node_id and friendly_name
+                if (node_info.get('node_id') == sender_id or 
+                    node_info.get('friendly_name') == sender_id):
+                    return True
             response = requests.get(f"{self.bootstrap_url}/peers", timeout=5)
             if response.status_code == 200:
                 bootstrap_peers = response.json().get('peers', [])
-                logger.debug(f"Found {len(bootstrap_peers)} peers from bootstrap")
-                
-                # Check each peer from bootstrap
-                for peer_url in bootstrap_peers:
-                    if peer_url not in self.peers:  # Only check peers we don't already know
-                        try:
-                            logger.debug(f"Checking bootstrap peer: {peer_url}")
-                            response = requests.get(peer_url, timeout=5)
-                            if response.status_code == 200:
-                                node_info = response.json()
-                                logger.debug(f"Bootstrap peer info: {node_info}")
-                                # Check both node_id and friendly_name
-                                if (node_info.get('node_id') == sender_id or 
-                                    node_info.get('friendly_name') == sender_id):
-                                    logger.info(f"Verified sender {sender_id} from bootstrap peer {peer_url}")
-                                    # Add this peer to our known peers
-                                    self.peers.add(peer_url)
-                                    return True
-                        except Exception as e:
-                            logger.debug(f"Error checking bootstrap peer {peer_url}: {str(e)}")
-        except Exception as e:
-            logger.error(f"Error verifying with bootstrap node: {str(e)}")
-        
+            # Check each peer from bootstrap
+            for peer_url in bootstrap_peers:
+                if peer_url not in self.peers:  # Only check peers we don't already know
+                    response = requests.get(peer_url, timeout=5)
+                    if response.status_code == 200:
+                        node_info = response.json()
+                        # Check both node_id and friendly_name
+                        if (node_info.get('node_id') == sender_id or 
+                            node_info.get('friendly_name') == sender_id):
+                            # Add this peer to our known peers
+                            self.peers.add(peer_url)
+                            return True
         # If we get here, the sender was not verified
         logger.warning(f"Could not verify sender {sender_id}")
         return False
@@ -134,76 +106,60 @@ class Node:
         return jsonify({'status': 'received'})
     
     def send_message(self, target_url, message):
-        """Send a message to another node"""
-        try:
-            response = requests.post(
-                f"{target_url}/message",
-                json={'sender': self.node_id, 'msg': message},
-                timeout=5
-            )
-            return response.json()
-        except Exception as e:
-            logger.error(f"Failed to send message to {target_url}: {str(e)}")
-            return {'error': str(e)}
+        response = requests.post(
+            f"{target_url}/message",
+            json={'sender': self.node_id, 'msg': message},
+            timeout=5
+        )
+        return response.json()
     
     def get_peers(self):
-        """Return the list of known peers"""
         return jsonify({'peers': list(self.peers)})
     
     def get_initial_peers_from_bootstrap(self):
         """Get the initial peer list from the bootstrap node"""
-        try:
-            logger.info(f"Getting initial peer list from bootstrap node at {self.bootstrap_url}")
-            response = requests.get(f"{self.bootstrap_url}/peers", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                bootstrap_peers = set(data.get('peers', []))
-                logger.info(f"Received {len(bootstrap_peers)} peers from bootstrap node")
-                
-                # Add all peers from bootstrap to our peer list
-                for peer_url in bootstrap_peers:
-                    if peer_url != self.node_url:
-                        self.peers.add(peer_url)
-                        logger.info(f"Added peer from bootstrap: {peer_url}")
-                
-                return True
-            else:
-                logger.error(f"Failed to get peers from bootstrap node: {response.text}")
-                return False
-        except Exception as e:
-            logger.error(f"Error getting peers from bootstrap node: {str(e)}")
+        response = requests.get(f"{self.bootstrap_url}/peers", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            bootstrap_peers = set(data.get('peers', []))
+            logger.info(f"Received {len(bootstrap_peers)} peers from bootstrap node")
+            
+            # Add all peers from bootstrap to our peer list
+            for peer_url in bootstrap_peers:
+                if peer_url != self.node_url:
+                    self.peers.add(peer_url)
+            
+            return True
+        else:
+            logger.error(f"Failed to get peers from bootstrap node: {response.text}")
             return False
+
     
     def register_with_bootstrap(self):
         """Register this node with the bootstrap node"""
-        try:
-            logger.info(f"Registering with bootstrap node at {self.bootstrap_url}")
-            response = requests.post(
-                f"{self.bootstrap_url}/register",
-                json={'peer_url': self.node_url},
-                timeout=5
-            )
-            if response.status_code == 200:
-                data = response.json()
-                logger.info(f"Successfully registered with bootstrap node. Received {len(data.get('peers', []))} peers.")
-                # Add all peers from bootstrap to our peer list
-                for peer_url in data.get('peers', []):
-                    if peer_url != self.node_url:
-                        self.peers.add(peer_url)
-                        logger.info(f"Added peer from bootstrap: {peer_url}")
-                        # Try to register with the peer as well
-                        try:
-                            requests.post(
-                                f"{peer_url}/register",
-                                json={'peer_url': self.node_url},
-                                timeout=5
-                            )
-                        except Exception as e:
-                            logger.error(f"Failed to register with peer {peer_url}: {str(e)}")
-            else:
-                logger.error(f"Failed to register with bootstrap node: {response.text}")
-        except Exception as e:
-            logger.error(f"Error registering with bootstrap node: {str(e)}")
+        response = requests.post(
+            f"{self.bootstrap_url}/register",
+            json={'peer_url': self.node_url},
+            timeout=5
+        )
+        if response.status_code == 200:
+            data = response.json()
+            logger.info(f"Successfully registered with bootstrap node. Received {len(data.get('peers', []))} peers.")
+            # Add all peers from bootstrap to our peer list
+            for peer_url in data.get('peers', []):
+                if peer_url != self.node_url:
+                    self.peers.add(peer_url)
+                    # Try to register with the peer as well
+                    try:
+                        requests.post(
+                            f"{peer_url}/register",
+                            json={'peer_url': self.node_url},
+                            timeout=5
+                        )
+                    except Exception:
+                        pass
+        else:
+            logger.error(f"Failed to register with bootstrap node: {response.text}")
     
     def discover_peers(self):
         """Periodically discover peers by communicating directly with known peers"""
@@ -212,63 +168,43 @@ class Node:
         
         # Then start the periodic discovery
         while True:
-            try:
-                logger.info("Starting peer discovery round...")
-                logger.info(f"Current peers: {self.peers}")
-                
-                # Only check bootstrap node if we have no peers
-                if len(self.peers) == 0:
-                    logger.info("No peers found, checking bootstrap node...")
-                    self.get_initial_peers_from_bootstrap()
-                
-                # Discover peers directly from known peers
-                for peer_url in list(self.peers):
-                    try:
-                        logger.debug(f"Checking peers from {peer_url}")
-                        response = requests.get(f"{peer_url}/peers", timeout=5)
-                        if response.status_code == 200:
-                            data = response.json()
-                            direct_peers = set(data.get('peers', []))
-                            logger.debug(f"Found {len(direct_peers)} peers from {peer_url}")
+            # Only check bootstrap node if we have no peers
+            if len(self.peers) == 0:
+                logger.info("No peers found, checking bootstrap node...")
+                self.get_initial_peers_from_bootstrap()
+            
+            # Discover peers directly from known peers
+            for peer_url in list(self.peers):
+                response = requests.get(f"{peer_url}/peers", timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    direct_peers = set(data.get('peers', []))
+                    
+                    # Add new peers
+                    new_peers = direct_peers - self.peers
+                    for new_peer in new_peers:
+                        if new_peer != self.node_url:
+                            self.peers.add(new_peer)
+                            logger.info(f"Discovered new peer: {new_peer}")
                             
-                            # Add new peers
-                            new_peers = direct_peers - self.peers
-                            for new_peer in new_peers:
-                                if new_peer != self.node_url:
-                                    self.peers.add(new_peer)
-                                    logger.info(f"Discovered new peer from {peer_url}: {new_peer}")
-                                    
-                                    # Register with the new peer
-                                    try:
-                                        requests.post(
-                                            f"{new_peer}/register",
-                                            json={'peer_url': self.node_url},
-                                            timeout=5
-                                        )
-                                    except Exception as e:
-                                        logger.error(f"Failed to register with new peer {new_peer}: {str(e)}")
-                    except Exception as e:
-                        logger.error(f"Error discovering peers from {peer_url}: {str(e)}")
-                        # If we can't reach a peer, remove it from our list
-                        self.peers.remove(peer_url)
-                        logger.info(f"Removed unreachable peer: {peer_url}")
-            
-            except Exception as e:
-                logger.error(f"Error in peer discovery: {str(e)}")
-            
+                            # Register with the new peer
+                            try:
+                                requests.post(
+                                    f"{new_peer}/register",
+                                    json={'peer_url': self.node_url},
+                                    timeout=5
+                                )
+                            except Exception:
+                                pass
             # Sleep for a while before next discovery
             time.sleep(5)  # Check every 5 seconds
     
     def send_heartbeat(self):
         """Periodically send heartbeat to bootstrap node to maintain registration"""
         while True:
-            try:
-                # Re-register with bootstrap node to indicate we're still alive
-                self.register_with_bootstrap()
-            except Exception as e:
-                logger.error(f"Error sending heartbeat: {str(e)}")
-            
-            # Sleep for a while before next heartbeat
+            # Re-register with bootstrap node to indicate we're still alive
+            self.register_with_bootstrap()
+        # Sleep for a while before next heartbeat
             time.sleep(60)
     
     def start(self):

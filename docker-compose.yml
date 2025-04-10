@@ -2,7 +2,9 @@ version: "3"
 
 services:
   bootstrap:
-    build: .
+    build:
+      context: .
+      dockerfile: bootstrap.Dockerfile
     command: python bootstrap.py
     ports:
       - "5000:5000"

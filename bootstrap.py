@@ -1,3 +1,6 @@
+# Required packages:
+# pip install flask==3.0.2 requests==2.31.0
+
 from flask import Flask, jsonify, request
 import logging
 import os
@@ -22,21 +25,18 @@ def register_peer():
     """Register a new peer"""
     data = request.get_json()
     if not data or 'peer_url' not in data:
-        logger.error("Missing peer_url in request")
         return jsonify({'error': 'Missing peer_url in request'}), 400
     
     peer_url = data['peer_url']
     if peer_url not in peers:
         peers.add(peer_url)
         logger.info(f"Registered new peer: {peer_url}")
-        logger.info(f"Current peers: {peers}")
     
     return jsonify({'status': 'registered', 'peers': list(peers)})
 
 @app.route('/peers', methods=['GET'])
 def get_peers():
     """Return the list of registered peers"""
-    logger.info(f"Returning {len(peers)} peers")
     return jsonify({'peers': list(peers)})
 
 if __name__ == '__main__':
