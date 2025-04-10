@@ -1,0 +1,104 @@
+version: "3"
+
+services:
+  bootstrap:
+    build: .
+    command: python bootstrap.py
+    ports:
+      - "5000:5000"
+    container_name: bootstrap
+    environment:
+      - FLASK_APP=bootstrap.py
+      - FLASK_ENV=development
+      - PORT=5000
+    networks:
+      - p2p_network
+
+  node1:
+    build: .
+    command: python node.py
+    ports:
+      - "5001:5000"
+    container_name: node1
+    environment:
+      - FLASK_APP=node.py
+      - FLASK_ENV=development
+      - BOOTSTRAP_URL=http://bootstrap:5000
+      - NODE_NAME=Node1
+      - PORT=5000
+    networks:
+      - p2p_network
+    depends_on:
+      - bootstrap
+
+  node2:
+    build: .
+    command: python node.py
+    ports:
+      - "5002:5000"
+    container_name: node2
+    environment:
+      - FLASK_APP=node.py
+      - FLASK_ENV=development
+      - BOOTSTRAP_URL=http://bootstrap:5000
+      - NODE_NAME=Node2
+      - PORT=5000
+    networks:
+      - p2p_network
+    depends_on:
+      - bootstrap
+
+  node3:
+    build: .
+    command: python node.py
+    ports:
+      - "5003:5000"
+    container_name: node3
+    environment:
+      - FLASK_APP=node.py
+      - FLASK_ENV=development
+      - BOOTSTRAP_URL=http://bootstrap:5000
+      - NODE_NAME=Node3
+      - PORT=5000
+    networks:
+      - p2p_network
+    depends_on:
+      - bootstrap
+
+  node4:
+    build: .
+    command: python node.py
+    ports:
+      - "5004:5000"
+    container_name: node4
+    environment:
+      - FLASK_APP=node.py
+      - FLASK_ENV=development
+      - BOOTSTRAP_URL=http://bootstrap:5000
+      - NODE_NAME=Node4
+      - PORT=5000
+    networks:
+      - p2p_network
+    depends_on:
+      - bootstrap
+
+  node5:
+    build: .
+    command: python node.py
+    ports:
+      - "5005:5000"
+    container_name: node5
+    environment:
+      - FLASK_APP=node.py
+      - FLASK_ENV=development
+      - BOOTSTRAP_URL=http://bootstrap:5000
+      - NODE_NAME=Node5
+      - PORT=5000
+    networks:
+      - p2p_network
+    depends_on:
+      - bootstrap
+
+networks:
+  p2p_network:
+    driver: bridge
