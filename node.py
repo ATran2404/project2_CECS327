@@ -57,12 +57,8 @@ class Node:
         if peer_url != self.node_url and peer_url not in self.peers:
             self.peers.add(peer_url)
             logger.info(f"Registered new peer: {peer_url}")
-            
-            # Notify the peer about this node (bidirectional registration)
-            try:
-                requests.post(f"{peer_url}/register", json={'peer_url': self.node_url}, timeout=5)
-            except Exception as e:
-                logger.error(f"Failed to notify peer {peer_url}: {str(e)}")
+            requests.post(f"{peer_url}/register", json={'peer_url': self.node_url}, timeout=5)
+
         
         return jsonify({'status': 'registered', 'peers': list(self.peers)})
     
